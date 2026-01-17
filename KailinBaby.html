@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>好寶寶全獎勵計畫 🌟</title>
+    <style>
+        * { -webkit-tap-highlight-color: transparent; user-select: none; box-sizing: border-box; }
+        
+        body {
+            font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+            background-color: #fef9e7;
+            margin: 0; padding: 10px;
+            display: flex; flex-direction: column; align-items: center;
+            height: 100dvh; overflow: hidden;
+        }
+
+        .header {
+            flex: 1.2;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            width: 100%;
+        }
+
+        .gift-box { 
+            font-size: clamp(60px, 18vh, 90px); 
+            transition: transform 0.3s; 
+            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));
+        }
+        
+        .shake { animation: shakeAnim 0.5s ease-in-out infinite; }
+        @keyframes shakeAnim {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(15deg) scale(1.1); }
+            75% { transform: rotate(-15deg) scale(1.1); }
+        }
+
+        #message {
+            font-size: 18px; color: #2d3436; font-weight: bold;
+            margin-top: 10px; text-align: center; height: 50px; /* 增加高度容納兩行文字 */
+            padding: 0 15px;
+            line-height: 1.4;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            width: 100%;
+            max-width: 360px;
+            background: white;
+            padding: 15px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            flex: 3.5;
+            align-content: center;
+        }
+
+        .slot {
+            aspect-ratio: 1 / 1;
+            border: 2px dashed #fab1a0;
+            border-radius: 12px;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 24px;
+            background-color: #fff;
+            transition: all 0.2s;
+        }
+
+        .slot.locked { opacity: 0.3; border-color: #dfe6e9; }
+        
+        .slot.completed {
+            border-style: solid; 
+            background-color: #fff9db; 
+            border-color: #f1c40f;
+            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes pop { 0% { transform: scale(0.5); } 100% { transform: scale(1); } }
+
+        .controls { flex: 0.8; display: flex; gap: 12px; align-items: center; }
+        .btn { 
+            padding: 12px 25px; border-radius: 25px; border: none; 
+            font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .btn-settings { background-color: #ff7675; color: white; }
+        .btn-clear { background-color: #dfe6e9; color: #636e72; }
+
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 2000; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: white; padding: 25px; border-radius: 25px; width: 85%; max-height: 80vh;
+            overflow-y: auto;
+        }
+        #reward-display {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #ff9f43, #ee5253); 
+            color: white; padding: 40px 20px; border-radius: 30px;
+            text-align: center; z-index: 3000; width: 85%;
+        }
+        .name-input-group {
+            margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #eee;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div id="gift" class="gift-box">🎁</div>
+        <div id="message">載入中...</div>
+    </div>
+
+    <div class="grid-container" id="grid"></div>
+
+    <div class="controls">
+        <button class="btn btn-settings" onclick="openSettings()">📝 設定與名稱</button>
+        <button class="btn btn-clear" onclick="clearProgress()">🔄 重置</button>
+    </div>
+
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-top:0; color:#ee5253;">⚙️ 設定計畫</h2>
+            <div class="name-input-group">
+                <label style="font-weight:bold; color:#2d3436;">寶貝的名字：</label>
+                <input type="text" id="baby-name-input" placeholder="例如：小明" style="width:100%;padding:10px;margin-top:8px;border-radius:8px;border:2px solid #ff7675;">
+            </div>
+            <div id="inputs-container"></div>
+            <button class="btn btn-settings" style="width:100%; margin-top:15px;" onclick="saveSettings()">儲存設定</button>
+        </div>
+    </div>
+
+    <div id="reward-display">
+        <div id="reward-icon" style="font-size: 60px;">🎉</div>
+        <h2 id="reward-title">恭喜達成！</h2>
+        <p id="reward-text" style="font-size: 24px; font-weight: bold; margin: 20px 0; background: rgba(255,255,255,0.2); padding: 15px; border-radius: 15px;"></p>
+        <button class="btn" id="claim-btn" style="background:white; color:#ee5253;" onclick="closeReward()">領取獎勵</button>
+    </div>
+
+    <script>
+        const totalSlots = 30;
+        const grid = document.getElementById('grid');
+        const gift = document.getElementById('gift');
+        const message = document.getElementById('message');
+        
+        const iconPool = ["🍎", "🍊", "🍇", "🍓", "🍍", "🧸", "🚗", "🚲", "🎨", "⚽", "🍦", "🎈", "🍭", "🍩", "🛸"];
+        
+        // 對話模板，使用 {name} 作為佔位符
+        const scripts = {
+            cheers: ["{name}好棒！圖案收集+1 ✨", "{name}是最優秀的寶貝！ 💪", "離禮物更近囉，{name}加油！ 🏃‍♂️", "{name}今天的表現給 100 分！ 💯"],
+            almost: ["{name}再一個！再一個就領獎了！ 🤩", "{name}你看，禮物在跳舞了！ 🎁"],
+            welcome: ["{name}今天要收集什麼圖案呢？ 😊", "{name}，準備好開始挑戰了嗎？ ⭐"],
+            reward: ["{name}恭喜你！這是屬於你的獎勵！ ✨"]
+        };
+
+        let currentProgress = parseInt(localStorage.getItem('bearProgress')) || 0;
+        let babyName = localStorage.getItem('babyName') || "寶貝";
+        let rewards = JSON.parse(localStorage.getItem('allRewards')) || ["獎勵1", "獎勵2", "獎勵3", "獎勵4", "獎勵5", "終極大獎"];
+        let rowIcons = JSON.parse(localStorage.getItem('rowIcons')) || [];
+        
+        // --- 狀態鎖：防止連點造成的動畫異常 ---
+        let isAnimating = false;
+
+        function getMsg(type) {
+            const list = scripts[type];
+            const raw = list[Math.floor(Math.random() * list.length)];
+            return raw.replace("{name}", babyName);
+        }
+
+        function initGrid() {
+            grid.innerHTML = '';
+            for (let i = 0; i < totalSlots; i++) {
+                const slot = document.createElement('div');
+                const rowIdx = Math.floor(i / 5);
+                let status = (i < currentProgress) ? 'completed' : (i > currentProgress ? 'locked' : '');
+                
+                slot.className = `slot ${status}`;
+                slot.innerHTML = (i < currentProgress) ? (rowIcons[rowIdx] || "⭐") : "";
+                slot.onclick = () => handleTap(i);
+                grid.appendChild(slot);
+            }
+        }
+
+        function handleTap(index) {
+            // 如果正在動畫中，或者點擊的不是當前進度格，則不反應
+            if (isAnimating || index !== currentProgress) return;
+
+            const rowIdx = Math.floor(currentProgress / 5);
+            
+            if (currentProgress % 5 === 0) {
+                const randomIcon = iconPool[Math.floor(Math.random() * iconPool.length)];
+                rowIcons[rowIdx] = randomIcon;
+                localStorage.setItem('rowIcons', JSON.stringify(rowIcons));
+            }
+
+            currentProgress++;
+            localStorage.setItem('bearProgress', currentProgress);
+            initGrid();
+
+            if (currentProgress % 5 === 0) {
+                // 觸發領獎，進入鎖定狀態
+                isAnimating = true;
+                triggerGiftAnimation(rewards[rowIdx], currentProgress === 30);
+            } else {
+                message.innerText = (currentProgress % 5 === 4) ? getMsg('almost') : getMsg('cheers');
+            }
+        }
+
+        function triggerGiftAnimation(rewardText, isFinal) {
+            message.innerText = isFinal ? `🎊 ${babyName}完成了大挑戰！🎊` : `✨ 叮咚！${babyName}可以領獎囉！✨`;
+            gift.classList.add('shake');
+            
+            // 延遲一點點才彈出獎勵視窗，讓搖晃感更明顯
+            setTimeout(() => {
+                gift.classList.remove('shake');
+                document.getElementById('reward-text').innerText = rewardText;
+                document.getElementById('reward-title').innerText = isFinal ? "🏆 終極大獎勵" : `🎁 棒棒獎勵`;
+                document.getElementById('reward-display').style.display = 'block';
+            }, 1200);
+        }
+
+        function closeReward() {
+            document.getElementById('reward-display').style.display = 'none';
+            // 解鎖動畫狀態
+            isAnimating = false;
+            message.innerText = (currentProgress === 30) ? `快去領取獎勵吧，${babyName}！` : `繼續加油，${babyName}！`;
+        }
+
+        function openSettings() {
+            if(isAnimating) return; // 動畫中禁止開啟設定
+            document.getElementById('baby-name-input').value = babyName;
+            const container = document.getElementById('inputs-container');
+            container.innerHTML = '';
+            rewards.forEach((r, i) => {
+                container.innerHTML += `<div style="margin-bottom:10px;"><label style="font-size:13px;color:#666">第${(i+1)*5}格獎勵:</label><input type="text" class="reward-input" value="${r}" style="width:100%;padding:8px;border-radius:8px;border:1px solid #ccc;"></div>`;
+            });
+            document.getElementById('settings-modal').style.display = 'flex';
+        }
+        
+        function saveSettings() {
+            const newName = document.getElementById('baby-name-input').value.trim();
+            if(newName) {
+                babyName = newName;
+                localStorage.setItem('babyName', babyName);
+            }
+            
+            const inputs = document.querySelectorAll('.reward-input');
+            rewards = Array.from(inputs).map(input => input.value || "獎勵");
+            localStorage.setItem('allRewards', JSON.stringify(rewards));
+            
+            document.getElementById('settings-modal').style.display = 'none';
+            message.innerText = getMsg('welcome');
+        }
+
+        function clearProgress() {
+            if (isAnimating) return;
+            if (confirm(`確定要幫 ${babyName} 重置進度嗎？`)) {
+                currentProgress = 0;
+                rowIcons = [];
+                localStorage.removeItem('bearProgress');
+                localStorage.removeItem('rowIcons');
+                initGrid();
+                message.innerText = "重新開始囉！加油！🏁";
+            }
+        }
+
+        // 初始化
+        initGrid();
+        message.innerText = getMsg('welcome');
+    </script>
+</body>
+</html>
