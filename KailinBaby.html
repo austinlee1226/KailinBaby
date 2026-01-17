@@ -12,26 +12,23 @@
             background-color: #fef9e7;
             margin: 0; 
             padding: 10px;
-            /* 修正核心：使用 svh 單位並考慮安全區域 */
-            height: 100svh; 
-            height: 100vh; /* 舊型手機備案 */
+            height: 100svh; /* 確保適應 LINE 的高度 */
             display: flex; 
             flex-direction: column; 
             align-items: center;
             overflow: hidden;
-            padding-bottom: env(safe-area-inset-bottom); /* iPhone 底部安全區 */
+            padding-bottom: env(safe-area-inset-bottom);
         }
 
         .header {
-            flex: 1; /* 縮小比例給下方空間 */
+            flex: 1;
             display: flex; flex-direction: column;
             justify-content: center; align-items: center;
             width: 100%;
         }
 
         .gift-box { 
-            font-size: clamp(50px, 12vh, 80px); /* 縮小一點避免擠壓 */
-            transition: transform 0.3s; 
+            font-size: clamp(50px, 12vh, 80px); 
             filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));
         }
         
@@ -58,7 +55,7 @@
             padding: 12px;
             border-radius: 20px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-            flex: 3.2; /* 調整比例 */
+            flex: 3.2;
             align-content: center;
         }
 
@@ -81,7 +78,6 @@
 
         @keyframes pop { 0% { transform: scale(0.5); } 100% { transform: scale(1); } }
 
-        /* 底部按鈕區優化 */
         .controls { 
             flex: 0.8; 
             display: flex; 
@@ -89,7 +85,7 @@
             align-items: center; 
             width: 100%;
             justify-content: center;
-            padding-bottom: 10px; /* 給予額外的底部留白 */
+            padding-bottom: 10px;
         }
         
         .btn { 
@@ -104,7 +100,6 @@
         .btn-settings { background-color: #ff7675; color: white; }
         .btn-clear { background-color: #dfe6e9; color: #636e72; }
 
-        /* 彈窗樣式 */
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); z-index: 2000; justify-content: center; align-items: center;
@@ -167,6 +162,7 @@
             welcome: ["{name}今天要收集什麼呢？ 😊", "{name}，挑戰開始！ ⭐"]
         };
 
+        // --- 核心：從本地儲存讀取資料 ---
         let currentProgress = parseInt(localStorage.getItem('bearProgress')) || 0;
         let babyName = localStorage.getItem('babyName') || "寶貝";
         let rewards = JSON.parse(localStorage.getItem('allRewards')) || ["獎勵1", "獎勵2", "獎勵3", "獎勵4", "獎勵5", "終極大獎"];
@@ -194,13 +190,19 @@
         function handleTap(index) {
             if (isAnimating || index !== currentProgress) return;
             const rowIdx = Math.floor(currentProgress / 5);
+            
+            // 每一排的第一個點擊時抽圖案並儲存
             if (currentProgress % 5 === 0) {
                 rowIcons[rowIdx] = iconPool[Math.floor(Math.random() * iconPool.length)];
                 localStorage.setItem('rowIcons', JSON.stringify(rowIcons));
             }
+            
             currentProgress++;
+            // 儲存進度到本地端
             localStorage.setItem('bearProgress', currentProgress);
+            
             initGrid();
+            
             if (currentProgress % 5 === 0) {
                 isAnimating = true;
                 triggerGiftAnimation(rewards[rowIdx], currentProgress === 30);
@@ -239,23 +241,28 @@
         
         function saveSettings() {
             const newName = document.getElementById('baby-name-input').value.trim();
-            if(newName) { babyName = newName; localStorage.setItem('babyName', babyName); }
+            if(newName) { 
+                babyName = newName; 
+                localStorage.setItem('babyName', babyName); 
+            }
             const inputs = document.querySelectorAll('.reward-input');
             rewards = Array.from(inputs).map(input => input.value || "獎勵");
+            // 儲存獎勵清單到本地端
             localStorage.setItem('allRewards', JSON.stringify(rewards));
+            
             document.getElementById('settings-modal').style.display = 'none';
             message.innerText = getMsg('welcome');
         }
 
         function clearProgress() {
             if (isAnimating) return;
-            if (confirm(`確定要重置進度嗎？`)) {
-                currentProgress = 0; rowIcons = [];
-                localStorage.clear();
-                location.reload();
+            if (confirm(`確定要幫 ${babyName} 重置所有進度嗎？`)) {
+                localStorage.clear(); // 清空所有儲存資料
+                location.reload();    // 重新載入頁面
             }
         }
 
+        // 啟動
         initGrid();
         message.innerText = getMsg('welcome');
     </script>
